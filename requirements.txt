@@ -81,7 +81,6 @@ lib50==3.2.1
 lightkurve==2.6.0
 llvmlite==0.47.0
 lxml==6.1.3
--e git+https://github.com/nipuntamore/MANAKMARG@41280bec194d90984b0d397835becaa7aa9c9296#egg=manakmarg&subdirectory=backend
 markdown-it-py==4.2.0
 markdown2==2.5.5
 MarkupSafe==3.0.3
