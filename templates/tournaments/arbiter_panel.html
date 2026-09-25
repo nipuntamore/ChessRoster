@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+
+{% block title %}Arbiter Station | {{ tournament.name }}{% endblock %}
+
+{% block content %}
+<div class="py-3">
+    <!-- Breadcrumb -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb small mb-0">
+                <li class="breadcrumb-item"><a href="{% url 'tournament_list' %}">Tournaments</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'tournament_detail' slug=tournament.slug %}">{{ tournament.name }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Arbiter Control Station</li>
+            </ol>
+        </nav>
+        <a href="{% url 'tournament_detail' slug=tournament.slug %}?art=2" class="btn btn-sm btn-outline-dark">
+            <i class="bi bi-display me-1"></i> Public Tournament View
+        </a>
+    </div>
+
+    <!-- Arbiter Banner -->
+    <div class="card border-0 shadow-sm rounded-3 bg-dark-chess text-white p-4 mb-4">
+        <div class="row align-items-center g-3">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-shield-check"></i> CHIEF ARBITER CONTROL ROOM</span>
+                    <span class="badge-tnr">{{ tournament.tournament_code }}</span>
+                </div>
+                <h3 class="fw-bold mb-1">{{ tournament.name }}</h3>
+                <p class="text-white-50 small mb-0">
+                    Chief Arbiter: <strong>{{ tournament.chief_arbiter }}</strong> • Format: <strong>{{ tournament.get_tournament_system_display }}</strong> • Total Registered: <strong>{{ tournament.participant_count }} Players</strong>
+                </p>
+            </div>
+            <div class="col-lg-4 text-lg-end d-flex justify-content-lg-end gap-2 flex-wrap">
+                <!-- Generate Next Round Button -->
+                {% if tournament.current_round_num < tournament.rounds_count %}
+                    <form method="POST" action="{% url 'generate_pairings' slug=tournament.slug %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="round_number" value="{{ tournament.current_round_num|add:1 }}">
+                        <button type="submit" class="btn btn-success fw-bold shadow-sm" onclick="return confirm('Generate Swiss pairings for Round {{ tournament.current_round_num|add:1 }}?');">
+                            <i class="bi bi-shuffle me-1"></i> Pair Round {{ tournament.current_round_num|add:1 }}
+                        </button>
+                    </form>
+                {% endif %}
+
+                <!-- Recalculate Button -->
+                <form method="POST" action="{% url 'recalculate_standings' slug=tournament.slug %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light">
+                        <i class="bi bi-arrow-repeat me-1"></i> Refresh Standings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Round Selector Bar -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="fw-bold text-secondary text-uppercase small">Manage Round:</span>
+                {% for r in all_rounds %}
+                    <a href="{% url 'arbiter_panel' slug=tournament.slug %}?rd={{ r.round_number }}" 
+                       class="btn btn-sm {% if r.round_number == current_rd_num %}btn-primary fw-bold text-white{% else %}btn-outline-secondary{% endif %}">
+                        Round {{ r.round_number }}
+                        {% if r.is_completed %}
+                            <i class="bi bi-check2 text-success ms-1"></i>
+                        {% endif %}
+                    </a>
+                {% empty %}
+                    <span class="text-secondary small italic">No rounds generated yet. Click 'Pair Round 1' above.</span>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex gap-2">
+                <a href="{% url 'tournament_register' slug=tournament.slug %}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-person-plus-fill me-1"></i> Add / Register Player
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Entry & Fixtures Table -->
+    {% if current_round and matches %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-pencil-square text-warning me-2"></i> Round {{ current_rd_num }} Fixtures & Result Entry
+                    </h5>
+                    <p class="text-secondary small mb-0">Select results from dropdowns to update scores live with auto-recalculated Buchholz and standings.</p>
+                </div>
+            </div>
+
+            <!-- Bulk Update Form -->
+            <form method="POST" action="{% url 'bulk_update_results' slug=tournament.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="round_id" value="{{ current_round.id }}">
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover align-middle chess-table mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;" class="text-center">Bd.</th>
+                                <th>White Player</th>
+                                <th style="width: 60px;" class="text-center">Rtg</th>
+                                <th style="width: 220px;" class="text-center bg-warning-subtle text-dark">Result Entry</th>
+                                <th style="width: 60px;" class="text-center">Rtg</th>
+                                <th>Black Player</th>
+                                <th style="width: 150px;">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in matches %}
+                                <tr>
+                                    <td class="text-center fw-bold">{{ m.board_number }}</td>
+                                    
+                                    <!-- White -->
+                                    <td>
+                                        {% if m.white_participant %}
+                                            <span class="piece-icon-w"></span>
+                                            {% if m.white_participant.player.title != 'NONE' %}
+                                                <span class="badge badge-title badge-{{ m.white_participant.player.title|lower }}">{{ m.white_participant.player.title }}</span>
+                                            {% endif %}
+                                            <span class="fw-semibold text-dark">{{ m.white_participant.player.name }}</span>
+                                            <span class="fed-tag ms-1">{{ m.white_participant.player.federation }}</span>
+                                            <span class="text-xs text-secondary ms-1">({{ m.white_participant.current_points }} pts)</span>
+                                        {% else %}
+                                            <span class="text-secondary fst-italic">BYE</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center font-monospace small">{{ m.white_participant.player.rating|default:"-" }}</td>
+
+                                    <!-- Result Dropdown -->
+                                    <td class="text-center bg-light">
+                                        <select name="result_{{ m.id }}" class="form-select form-select-sm match-result-select">
+                                            {% for code, label in result_choices %}
+                                                <option value="{{ code }}" {% if m.result == code %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+
+                                    <td class="text-center font-monospace small">{{ m.black_participant.player.rating|default:"-" }}</td>
+
+                                    <!-- Black -->
+                                    <td>
+                                        {% if m.black_participant %}
+                                            <span class="piece-icon-b"></span>
+                                            {% if m.black_participant.player.title != 'NONE' %}
+                                                <span class="badge badge-title badge-{{ m.black_participant.player.title|lower }}">{{ m.black_participant.player.title }}</span>
+                                            {% endif %}
+                                            <span class="fw-semibold text-dark">{{ m.black_participant.player.name }}</span>
+                                            <span class="fed-tag ms-1">{{ m.black_participant.player.federation }}</span>
+                                            <span class="text-xs text-secondary ms-1">({{ m.black_participant.current_points }} pts)</span>
+                                        {% else %}
+                                            <span class="text-secondary fst-italic">BYE</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        <input type="text" name="remarks_{{ m.id }}" class="form-control form-control-sm" placeholder="e.g. Forfeit / Time" value="{{ m.remarks }}">
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <span class="text-secondary small">
+                        <i class="bi bi-info-circle me-1"></i> Saving results will automatically recalculate Buchholz, SB, and Points for all players.
+                    </span>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm">
+                        <i class="bi bi-save2 me-1"></i> Save All Results for Round {{ current_rd_num }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    {% else %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-5 text-center">
+            <div class="display-3 text-secondary opacity-25 mb-3">♔</div>
+            <h4 class="fw-bold text-dark">Ready to Generate Pairings</h4>
+            <p class="text-secondary mb-4">
+                Tournament currently has <strong>{{ tournament.participant_count }} players</strong> registered.
+                {% if tournament.participant_count < 2 %}
+                    Please register at least 2 players to start generating pairings.
+                {% else %}
+                    Click below to generate initial Swiss pairings for Round 1!
+                {% endif %}
+            </p>
+            <div class="d-flex justify-content-center gap-3">
+                {% if tournament.participant_count >= 2 %}
+                    <form method="POST" action="{% url 'generate_pairings' slug=tournament.slug %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="round_number" value="1">
+                        <button type="submit" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm">
+                            <i class="bi bi-shuffle me-1"></i> Generate Round 1 Pairings
+                        </button>
+                    </form>
+                {% endif %}
+                <a href="{% url 'tournament_register' slug=tournament.slug %}" class="btn btn-success btn-lg px-4 fw-bold shadow-sm">
+                    <i class="bi bi-person-plus-fill me-1"></i> Register More Players
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

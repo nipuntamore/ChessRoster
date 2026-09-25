@@ -1,0 +1,552 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tournament.name }} | ChessRoster{% endblock %}
+
+{% block content %}
+<div class="py-3">
+    <!-- Breadcrumb & Share Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb small mb-0">
+                <li class="breadcrumb-item"><a href="{% url 'tournament_list' %}" class="text-decoration-none">Tournaments</a></li>
+                <li class="breadcrumb-item active text-truncate mw-250" aria-current="page">{{ tournament.name }}</li>
+            </ol>
+        </nav>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary btn-share-tournament" title="Copy URL">
+                <i class="bi bi-link-45deg me-1"></i> Share
+            </button>
+            <button class="btn btn-sm btn-outline-dark btn-print" onclick="window.print()" title="Print Current Sheet">
+                <i class="bi bi-printer me-1"></i> Print
+            </button>
+            <a href="{% url 'arbiter_panel' slug=tournament.slug %}" class="btn btn-sm btn-warning fw-semibold">
+                <i class="bi bi-gear-fill me-1"></i> Arbiter Station
+            </a>
+        </div>
+    </div>
+
+    <!-- Tournament Header Banner (Chess-Results Style Block) -->
+    <div class="card tournament-header-card text-white p-4 mb-4">
+        <div class="row align-items-center g-3">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge-tnr">{{ tournament.tournament_code }}</span>
+                    <span class="badge bg-warning text-dark fw-bold">{{ tournament.get_tournament_system_display }}</span>
+                    {% if tournament.status == 'ACTIVE' %}
+                        <span class="badge bg-success"><i class="bi bi-broadcast me-1"></i> In Progress (Rd {{ tournament.current_round_num }}/{{ tournament.rounds_count }})</span>
+                    {% elif tournament.status == 'UPCOMING' %}
+                        <span class="badge bg-primary"><i class="bi bi-clock me-1"></i> Registration Open</span>
+                    {% else %}
+                        <span class="badge bg-secondary"><i class="bi bi-check-circle me-1"></i> Completed</span>
+                    {% endif %}
+                </div>
+                <h2 class="tournament-title h3 mb-2 text-white">{{ tournament.name }}</h2>
+                <div class="d-flex flex-wrap gap-3 small text-white-50">
+                    <div><i class="bi bi-geo-alt-fill text-danger"></i> {{ tournament.city }}, {{ tournament.federation }} ({{ tournament.venue }})</div>
+                    <div><i class="bi bi-calendar3 text-info"></i> {{ tournament.start_date|date:"d M Y" }} to {{ tournament.end_date|date:"d M Y" }}</div>
+                    <div><i class="bi bi-stopwatch text-warning"></i> {{ tournament.time_control }}</div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 text-lg-end">
+                <div class="bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-50 text-start">
+                    <div class="text-xs text-white-50 text-uppercase fw-semibold mb-1">Tournament Officials</div>
+                    <div class="small mb-1"><strong>Chief Arbiter:</strong> {{ tournament.chief_arbiter }}</div>
+                    <div class="small mb-1"><strong>Organizer:</strong> {{ tournament.organizer }}</div>
+                    <div class="small"><strong>Total Players:</strong> <span class="text-warning fw-bold">{{ tournament.participant_count }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chess-Results Sub Navigation Tabs -->
+    <ul class="nav nav-tabs chess-nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if art == '2' or art == 'pairings' %}active{% endif %}" href="{% url 'tournament_detail' slug=tournament.slug %}?art=2&rd={{ selected_round_num }}">
+                <i class="bi bi-shuffle me-1 text-primary"></i> Pairings & Results
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if art == '4' or art == 'standings' %}active{% endif %}" href="{% url 'tournament_detail' slug=tournament.slug %}?art=4">
+                <i class="bi bi-trophy me-1 text-warning"></i> Standings
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if art == '1' or art == 'players' %}active{% endif %}" href="{% url 'tournament_detail' slug=tournament.slug %}?art=1">
+                <i class="bi bi-people me-1 text-info"></i> Starting Rank ({{ tournament.participant_count }})
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if art == '5' or art == 'crosstable' %}active{% endif %}" href="{% url 'tournament_detail' slug=tournament.slug %}?art=5">
+                <i class="bi bi-grid-3x3 me-1 text-success"></i> Crosstable
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if art == '0' or art == 'overview' %}active{% endif %}" href="{% url 'tournament_detail' slug=tournament.slug %}?art=0">
+                <i class="bi bi-info-circle me-1 text-secondary"></i> Tournament Details
+            </a>
+        </li>
+        <li class="nav-item ms-auto">
+            <a class="nav-link bg-success text-white fw-bold" href="{% url 'tournament_register' slug=tournament.slug %}">
+                <i class="bi bi-person-plus-fill me-1"></i> Register Player
+            </a>
+        </li>
+    </ul>
+
+    <!-- ========================================== -->
+    <!-- TAB 1: PAIRINGS & RESULTS (art=2)           -->
+    <!-- ========================================== -->
+    {% if art == '2' or art == 'pairings' %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3 p-md-4">
+            <!-- Round Pills Selector (1, 2, 3, 4, 5, 6, 7...) -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 pb-3 border-bottom">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="fw-bold text-secondary text-uppercase small">Rounds:</span>
+                    {% for r in all_rounds %}
+                        <a href="{% url 'tournament_detail' slug=tournament.slug %}?art=2&rd={{ r.round_number }}" 
+                           class="btn round-pill-btn {% if r.round_number == selected_round_num %}btn-primary text-white shadow-sm{% else %}btn-outline-secondary{% endif %}">
+                            Round {{ r.round_number }}
+                            {% if r.is_completed %}
+                                <i class="bi bi-check2 text-success ms-1"></i>
+                            {% endif %}
+                        </a>
+                    {% empty %}
+                        <span class="text-secondary small italic">No rounds paired yet.</span>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm table-search-input" data-target-table="pairingsTable" placeholder="Filter board or player...">
+                    {% if not selected_round %}
+                        <a href="{% url 'arbiter_panel' slug=tournament.slug %}" class="btn btn-sm btn-primary text-nowrap">
+                            <i class="bi bi-play-fill"></i> Pair Round
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if selected_round and round_matches %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-diagram-3 text-primary me-2"></i> Board Pairings & Results - Round {{ selected_round_num }}
+                    </h5>
+                    <span class="badge bg-light text-dark border">
+                        {{ selected_round.completed_boards }} / {{ selected_round.total_boards }} Boards Scored
+                    </span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle chess-table mb-0" id="pairingsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;" class="text-center">Bd.</th>
+                                <th style="width: 50px;" class="text-center">No.</th>
+                                <th>White Player</th>
+                                <th style="width: 70px;" class="text-center">Rtg</th>
+                                <th style="width: 140px;" class="text-center">Result</th>
+                                <th style="width: 70px;" class="text-center">Rtg</th>
+                                <th>Black Player</th>
+                                <th style="width: 50px;" class="text-center">No.</th>
+                                <th style="width: 70px;" class="text-center no-print">Card</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in round_matches %}
+                                <tr>
+                                    <td class="text-center fw-bold text-secondary">{{ m.board_number }}</td>
+                                    
+                                    <!-- White Starting No -->
+                                    <td class="text-center font-monospace text-secondary">
+                                        {{ m.white_participant.starting_rank|default:"-" }}
+                                    </td>
+
+                                    <!-- White Player -->
+                                    <td>
+                                        {% if m.white_participant %}
+                                            <span class="piece-icon-w"></span>
+                                            {% if m.white_participant.player.title != 'NONE' %}
+                                                <span class="badge badge-title badge-{{ m.white_participant.player.title|lower }}">{{ m.white_participant.player.title }}</span>
+                                            {% endif %}
+                                            <a href="{% url 'player_detail' slug=tournament.slug participant_id=m.white_participant.id %}" class="fw-semibold text-dark text-decoration-none hover-primary ms-1">
+                                                {{ m.white_participant.player.name }}
+                                            </a>
+                                            <span class="fed-tag ms-1">{{ m.white_participant.player.federation }}</span>
+                                            <span class="text-xs text-secondary ms-1">({{ m.white_participant.current_points }} pts)</span>
+                                        {% else %}
+                                            <span class="text-secondary fst-italic">BYE</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- White Rating -->
+                                    <td class="text-center font-monospace small">
+                                        {{ m.white_participant.player.rating|default:"-" }}
+                                    </td>
+
+                                    <!-- Result -->
+                                    <td class="text-center">
+                                        {% if m.result == '1-0' or m.result == '1-0_FF' %}
+                                            <span class="result-badge result-white-win">1 - 0</span>
+                                        {% elif m.result == '0-1' or m.result == '0-1_FF' %}
+                                            <span class="result-badge result-black-win">0 - 1</span>
+                                        {% elif m.result == '1/2-1/2' %}
+                                            <span class="result-badge result-draw">½ - ½</span>
+                                        {% elif m.result == '1-0_BYE' %}
+                                            <span class="result-badge result-bye">1 - 0 [Bye]</span>
+                                        {% elif m.result == '1/2-1/2_BYE' %}
+                                            <span class="result-badge result-bye">½ - ½ [Bye]</span>
+                                        {% elif m.result == '0-0_BYE' or m.result == '0-0_FF' %}
+                                            <span class="result-badge result-bye">0 - 0</span>
+                                        {% else %}
+                                            <span class="result-badge result-ongoing">*</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Black Rating -->
+                                    <td class="text-center font-monospace small">
+                                        {{ m.black_participant.player.rating|default:"-" }}
+                                    </td>
+
+                                    <!-- Black Player -->
+                                    <td>
+                                        {% if m.black_participant %}
+                                            <span class="piece-icon-b"></span>
+                                            {% if m.black_participant.player.title != 'NONE' %}
+                                                <span class="badge badge-title badge-{{ m.black_participant.player.title|lower }}">{{ m.black_participant.player.title }}</span>
+                                            {% endif %}
+                                            <a href="{% url 'player_detail' slug=tournament.slug participant_id=m.black_participant.id %}" class="fw-semibold text-dark text-decoration-none hover-primary ms-1">
+                                                {{ m.black_participant.player.name }}
+                                            </a>
+                                            <span class="fed-tag ms-1">{{ m.black_participant.player.federation }}</span>
+                                            <span class="text-xs text-secondary ms-1">({{ m.black_participant.current_points }} pts)</span>
+                                        {% else %}
+                                            <span class="text-secondary fst-italic">BYE</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Black Starting No -->
+                                    <td class="text-center font-monospace text-secondary">
+                                        {{ m.black_participant.starting_rank|default:"-" }}
+                                    </td>
+
+                                    <!-- Scorecard button -->
+                                    <td class="text-center no-print">
+                                        {% if m.white_participant %}
+                                            <a href="{% url 'player_detail' slug=tournament.slug participant_id=m.white_participant.id %}" class="btn btn-sm btn-light border py-0 px-2" title="White player card">
+                                                <i class="bi bi-person-lines-fill"></i>
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <div class="fs-1 text-secondary opacity-25">⚔️</div>
+                    <h5 class="fw-bold text-dark mt-2">Round {{ selected_round_num }} Not Yet Paired</h5>
+                    <p class="text-secondary small">Head to the Arbiter Station to pair round fixtures or register players.</p>
+                    <a href="{% url 'arbiter_panel' slug=tournament.slug %}" class="btn btn-warning fw-bold">
+                        <i class="bi bi-gear-fill me-1"></i> Open Arbiter Station
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: STANDINGS (art=4)                    -->
+    <!-- ========================================== -->
+    {% elif art == '4' or art == 'standings' %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3 p-md-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-trophy-fill text-warning me-2"></i> Standings & Final Ranking
+                    </h5>
+                    <p class="text-secondary small mb-0">Official Standings ordered by: Points, Buchholz Cut 1 (BH-1), Buchholz (BH), Sonneborn-Berger (SB), Wins.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm table-search-input" data-target-table="standingsTable" placeholder="Search player name...">
+                    <form method="POST" action="{% url 'recalculate_standings' slug=tournament.slug %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Recalculate all tiebreaks">
+                            <i class="bi bi-arrow-repeat"></i> Refresh Tiebreaks
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle chess-table mb-0" id="standingsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;" class="text-center">Rk.</th>
+                            <th style="width: 50px;" class="text-center">SNo.</th>
+                            <th>Name</th>
+                            <th style="width: 60px;" class="text-center">Title</th>
+                            <th style="width: 70px;" class="text-center">FED</th>
+                            <th style="width: 70px;" class="text-center">Rtg</th>
+                            <th style="width: 80px;" class="text-center bg-primary text-white">Pts.</th>
+                            <th style="width: 75px;" class="text-center">BH-1</th>
+                            <th style="width: 75px;" class="text-center">BH</th>
+                            <th style="width: 75px;" class="text-center">SB</th>
+                            <th style="width: 60px;" class="text-center">Vict</th>
+                            <th style="width: 60px;" class="text-center no-print">Card</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in standings %}
+                            <tr {% if forloop.counter <= 3 %}class="table-warning bg-opacity-25"{% endif %}>
+                                <td class="text-center fw-bold">
+                                    {% if forloop.counter == 1 %}
+                                        <span class="badge bg-warning text-dark fs-6">🥇 1</span>
+                                    {% elif forloop.counter == 2 %}
+                                        <span class="badge bg-secondary text-white">🥈 2</span>
+                                    {% elif forloop.counter == 3 %}
+                                        <span class="badge bg-bronze text-white" style="background-color: #b45309;">🥉 3</span>
+                                    {% else %}
+                                        {{ forloop.counter }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center font-monospace text-secondary">{{ p.starting_rank }}</td>
+                                <td>
+                                    <a href="{% url 'player_detail' slug=tournament.slug participant_id=p.id %}" class="fw-bold text-dark text-decoration-none hover-primary">
+                                        {{ p.player.name }}
+                                    </a>
+                                </td>
+                                <td class="text-center">
+                                    {% if p.player.title != 'NONE' %}
+                                        <span class="badge badge-title badge-{{ p.player.title|lower }}">{{ p.player.title }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="text-center"><span class="fed-tag">{{ p.player.federation }}</span></td>
+                                <td class="text-center font-monospace">{{ p.player.rating }}</td>
+                                <td class="text-center fw-bold fs-6 text-primary bg-primary-subtle font-monospace">{{ p.current_points }}</td>
+                                <td class="text-center font-monospace text-secondary">{{ p.buchholz_cut1 }}</td>
+                                <td class="text-center font-monospace text-secondary">{{ p.buchholz }}</td>
+                                <td class="text-center font-monospace text-secondary">{{ p.sonneborn_berger }}</td>
+                                <td class="text-center font-monospace">{{ p.wins_count }}</td>
+                                <td class="text-center no-print">
+                                    <a href="{% url 'player_detail' slug=tournament.slug participant_id=p.id %}" class="btn btn-sm btn-light border py-0 px-2" title="Scorecard">
+                                        <i class="bi bi-file-earmark-person"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="12" class="text-center py-4 text-secondary">No participants registered yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: STARTING RANK (art=1)                -->
+    <!-- ========================================== -->
+    {% elif art == '1' or art == 'players' %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3 p-md-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-card-list text-info me-2"></i> Starting Rank List of Players
+                    </h5>
+                    <p class="text-secondary small mb-0">Initial seeding sorted by Rating, Title, and Alphabetical order.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm table-search-input" data-target-table="playersListTable" placeholder="Search registered player...">
+                    <a href="{% url 'tournament_register' slug=tournament.slug %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-person-plus-fill me-1"></i> Register Player
+                    </a>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle chess-table mb-0" id="playersListTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;" class="text-center">SNo.</th>
+                            <th style="width: 60px;" class="text-center">Title</th>
+                            <th>Player Name</th>
+                            <th style="width: 90px;" class="text-center">FIDE ID</th>
+                            <th style="width: 70px;" class="text-center">FED</th>
+                            <th style="width: 80px;" class="text-center">Rtg</th>
+                            <th>Club / City</th>
+                            <th style="width: 60px;" class="text-center">Sex</th>
+                            <th style="width: 60px;" class="text-center no-print">Card</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in participants_list %}
+                            <tr>
+                                <td class="text-center fw-bold font-monospace">{{ p.starting_rank }}</td>
+                                <td class="text-center">
+                                    {% if p.player.title != 'NONE' %}
+                                        <span class="badge badge-title badge-{{ p.player.title|lower }}">{{ p.player.title }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'player_detail' slug=tournament.slug participant_id=p.id %}" class="fw-semibold text-dark text-decoration-none hover-primary">
+                                        {{ p.player.name }}
+                                    </a>
+                                </td>
+                                <td class="text-center font-monospace text-secondary">{{ p.player.fide_id|default:"-" }}</td>
+                                <td class="text-center"><span class="fed-tag">{{ p.player.federation }}</span></td>
+                                <td class="text-center font-monospace fw-bold">{{ p.player.rating }}</td>
+                                <td class="text-secondary small">{{ p.player.club_or_city|default:"-" }}</td>
+                                <td class="text-center text-secondary">{{ p.player.gender }}</td>
+                                <td class="text-center no-print">
+                                    <a href="{% url 'player_detail' slug=tournament.slug participant_id=p.id %}" class="btn btn-sm btn-light border py-0 px-2" title="Scorecard">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-secondary">No players registered yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: CROSSTABLE / GRID (art=5)            -->
+    <!-- ========================================== -->
+    {% elif art == '5' or art == 'crosstable' %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-grid-3x3 text-success me-2"></i> Tournament Crosstable Matrix
+                    </h5>
+                    <p class="text-secondary small mb-0">Format: <code>[Opponent Starting No][Color (w/b)][Score]</code> e.g. <code>12w1</code>, <code>4b0</code>, <code>7w½</code></p>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle chess-table mb-0 text-nowrap">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 40px;">Rk</th>
+                            <th class="text-center" style="width: 40px;">SNo</th>
+                            <th>Name</th>
+                            <th class="text-center" style="width: 45px;">FED</th>
+                            <th class="text-center" style="width: 55px;">Rtg</th>
+                            {% for r in all_rounds %}
+                                <th class="text-center" style="width: 50px;">Rd {{ r.round_number }}</th>
+                            {% endfor %}
+                            <th class="text-center bg-primary text-white" style="width: 60px;">Pts</th>
+                            <th class="text-center" style="width: 55px;">BH-1</th>
+                            <th class="text-center" style="width: 55px;">SB</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in crosstable_rows %}
+                            <tr>
+                                <td class="text-center fw-bold">{{ row.rank }}</td>
+                                <td class="text-center font-monospace text-secondary">{{ row.starting_rank }}</td>
+                                <td>
+                                    <a href="{% url 'player_detail' slug=tournament.slug participant_id=row.participant.id %}" class="fw-semibold text-dark text-decoration-none hover-primary">
+                                        {% if row.player.title != 'NONE' %}
+                                            <span class="badge badge-title badge-{{ row.player.title|lower }} me-1">{{ row.player.title }}</span>
+                                        {% endif %}
+                                        {{ row.player.name }}
+                                    </a>
+                                </td>
+                                <td class="text-center"><span class="fed-tag">{{ row.player.federation }}</span></td>
+                                <td class="text-center font-monospace small">{{ row.player.rating }}</td>
+                                {% for rc in row.rounds %}
+                                    <td class="crosstable-cell {% if '1' in rc.value and not '½' in rc.value and not '0' in rc.value %}cell-win{% elif '½' in rc.value %}cell-draw{% elif '0' in rc.value and not '1' in rc.value %}cell-loss{% endif %}">
+                                        {{ rc.value }}
+                                    </td>
+                                {% endfor %}
+                                <td class="text-center fw-bold font-monospace bg-primary-subtle text-primary">{{ row.points }}</td>
+                                <td class="text-center font-monospace text-secondary small">{{ row.buchholz_cut1 }}</td>
+                                <td class="text-center font-monospace text-secondary small">{{ row.sonneborn_berger }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="12" class="text-center py-4 text-secondary">Crosstable will appear once rounds are paired and played.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: OVERVIEW & INFO (art=0)              -->
+    <!-- ========================================== -->
+    {% else %}
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-4 mb-4">
+                    <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-info-circle text-primary me-2"></i> Tournament Overview & Regulations
+                    </h5>
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-secondary">Description</h6>
+                        <p class="text-dark">{{ tournament.description|linebreaksbr|default:"No description provided." }}</p>
+                    </div>
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-secondary">Rules, Tie-breaks & Prizes</h6>
+                        <pre class="bg-light p-3 rounded-3 text-dark font-sans" style="font-family: var(--font-main);">{{ tournament.rules_and_prizes|default:"Official FIDE Rules Apply." }}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-4">
+                    <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-clipboard-data text-warning me-2"></i> Quick Summary
+                    </h5>
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Reference Code:</span>
+                            <span class="font-monospace fw-bold">{{ tournament.tournament_code }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Pairing System:</span>
+                            <span class="fw-semibold">{{ tournament.get_tournament_system_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Rounds:</span>
+                            <span class="fw-semibold">{{ tournament.rounds_count }} Rounds</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Time Control:</span>
+                            <span class="fw-semibold">{{ tournament.time_control }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Rated:</span>
+                            <span class="badge {% if tournament.is_rated %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if tournament.is_rated %}Official Rated{% else %}Unrated{% endif %}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Chief Arbiter:</span>
+                            <span class="fw-semibold">{{ tournament.chief_arbiter }}</span>
+                        </li>
+                    </ul>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'tournament_register' slug=tournament.slug %}" class="btn btn-success fw-bold">
+                            <i class="bi bi-person-plus-fill me-1"></i> Register for Event
+                        </a>
+                        <a href="{% url 'tournament_detail' slug=tournament.slug %}?art=2" class="btn btn-outline-primary">
+                            <i class="bi bi-shuffle me-1"></i> View Fixtures & Results
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

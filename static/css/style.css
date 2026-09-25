@@ -1,0 +1,331 @@
+/* ==========================================================================
+   Chess Tournament Management System - Stylesheet
+   ========================================================================== */
+
+:root {
+    --chess-primary: #1e293b;
+    --chess-dark: #0f172a;
+    --chess-board-dark: #b58863;
+    --chess-board-light: #f0d9b5;
+    --chess-gold: #d97706;
+    --chess-gold-light: #fef3c7;
+    --chess-accent: #2563eb;
+    --chess-table-header: #334155;
+    --chess-table-stripe: #f8fafc;
+    --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-heading: 'Cinzel', serif;
+}
+
+body {
+    font-family: var(--font-main);
+    color: #1e293b;
+    background-color: #f1f5f9;
+}
+
+/* Navbar & Dark Themes */
+.bg-dark-chess {
+    background-color: #0f172a !important;
+    border-bottom: 2px solid #334155;
+}
+
+.brand-title {
+    letter-spacing: 0.05em;
+    font-weight: 800;
+}
+
+.chess-icon-brand {
+    color: #f59e0b;
+    filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.4));
+}
+
+.text-xs {
+    font-size: 0.75rem;
+}
+
+.bg-gold-subtle {
+    background-color: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.hover-white:hover {
+    color: #ffffff !important;
+}
+
+/* Tournament Header Card (matching Chess-Results.com header block) */
+.tournament-header-card {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.tournament-title {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.badge-tnr {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background-color: #334155;
+    color: #f8fafc;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid #475569;
+}
+
+/* Sub-navigation bar like Chess-Results (art=0, 1, 2, 4, 5...) */
+.chess-nav-tabs {
+    border-bottom: 2px solid #cbd5e1;
+    gap: 4px;
+}
+
+.chess-nav-tabs .nav-link {
+    color: #475569;
+    font-weight: 600;
+    padding: 0.65rem 1.15rem;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid transparent;
+    transition: all 0.2s ease-in-out;
+    background-color: #e2e8f0;
+}
+
+.chess-nav-tabs .nav-link:hover {
+    background-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.chess-nav-tabs .nav-link.active {
+    background-color: #ffffff;
+    color: #1e293b;
+    border-color: #cbd5e1 #cbd5e1 #ffffff;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.04);
+}
+
+/* Round pill selector */
+.round-pill-btn {
+    font-weight: 600;
+    padding: 0.4rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    transition: all 0.15s ease;
+}
+
+/* Tables styling */
+.chess-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #ffffff;
+}
+
+.chess-table thead th {
+    background-color: #1e293b;
+    color: #f8fafc;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.75rem 0.65rem;
+    border: none;
+    vertical-align: middle;
+}
+
+.chess-table tbody td {
+    padding: 0.65rem;
+    vertical-align: middle;
+    font-size: 0.9rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.chess-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.chess-table tbody tr.table-success-subtle {
+    background-color: #f0fdf4 !important;
+}
+
+/* Chess Title Badges */
+.badge-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+}
+
+.badge-gm {
+    background-color: #dc2626;
+    color: #ffffff;
+}
+
+.badge-wgm {
+    background-color: #e11d48;
+    color: #ffffff;
+}
+
+.badge-im {
+    background-color: #7c3aed;
+    color: #ffffff;
+}
+
+.badge-wim {
+    background-color: #9333ea;
+    color: #ffffff;
+}
+
+.badge-fm {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+
+.badge-wfm {
+    background-color: #0891b2;
+    color: #ffffff;
+}
+
+.badge-cm {
+    background-color: #059669;
+    color: #ffffff;
+}
+
+.badge-wcm {
+    background-color: #10b981;
+    color: #ffffff;
+}
+
+.badge-none {
+    display: none;
+}
+
+/* Chess Result Badges */
+.result-badge {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    display: inline-block;
+    min-width: 75px;
+    text-align: center;
+}
+
+.result-white-win {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.result-black-win {
+    background-color: #fce7f3;
+    color: #9d174d;
+    border: 1px solid #fbcfe8;
+}
+
+.result-draw {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.result-ongoing {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px dashed #cbd5e1;
+}
+
+.result-bye {
+    background-color: #e0e7ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+}
+
+/* Crosstable Matrix styles */
+.crosstable-cell {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.5rem !important;
+    text-align: center;
+    border-left: 1px solid #e2e8f0;
+}
+
+.cell-win {
+    background-color: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+}
+
+.cell-draw {
+    background-color: rgba(234, 179, 8, 0.15);
+    color: #a16207;
+}
+
+.cell-loss {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+}
+
+/* Federation flag icon placeholder / tag */
+.fed-tag {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    background-color: #e2e8f0;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+/* Arbiter Control Board */
+.arbiter-card {
+    border-left: 4px solid #f59e0b;
+}
+
+.match-result-select {
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+/* Chess Piece Icons */
+.piece-icon-w {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: #ffffff;
+    border: 1px solid #64748b;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.piece-icon-b {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: #0f172a;
+    border: 1px solid #0f172a;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* Print optimizations */
+@media print {
+    nav, footer, .btn-print, .no-print, .arbiter-card {
+        display: none !important;
+    }
+    body {
+        background-color: #ffffff !important;
+    }
+    .chess-table {
+        border: 1px solid #000 !important;
+    }
+    .chess-table thead th {
+        background-color: #ddd !important;
+        color: #000 !important;
+    }
+}

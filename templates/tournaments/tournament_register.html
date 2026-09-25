@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Register for {{ tournament.name }} | ChessRoster{% endblock %}
+
+{% block content %}
+<div class="py-3">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{% url 'tournament_list' %}">Tournaments</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'tournament_detail' slug=tournament.slug %}">{{ tournament.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Player Registration</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-3 bg-white">
+                <div class="card-header bg-dark-chess text-white p-4 rounded-top-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-2 text-success">♟</span>
+                        <div>
+                            <h3 class="fw-bold mb-1">Player Registration Form</h3>
+                            <p class="text-white-50 small mb-0">{{ tournament.name }} ({{ tournament.tournament_code }})</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {% csrf_token %}
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                                <div class="form-text">Format: Last Name, First Name (e.g. Carlsen, Magnus)</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">FIDE / Master Title</label>
+                                {{ form.title }}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Standard / FIDE Rating <span class="text-danger">*</span></label>
+                                {{ form.rating }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">FIDE ID (Optional)</label>
+                                {{ form.fide_id }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Federation (3-letter)</label>
+                                {{ form.federation }}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Club / Team / City</label>
+                                {{ form.club_or_city }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Birth Year</label>
+                                {{ form.birth_year }}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Gender</label>
+                                {{ form.gender }}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Email Address (Optional)</label>
+                                {{ form.email }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Contact Phone (Optional)</label>
+                                {{ form.phone }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-3 pt-3 border-top">
+                            <a href="{% url 'tournament_detail' slug=tournament.slug %}" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-success px-5 fw-bold shadow-sm">
+                                <i class="bi bi-check-circle me-1"></i> Complete Registration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
