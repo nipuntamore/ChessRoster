@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Restricted | Organiser Credentials Required{% endblock %}
+
+{% block content %}
+<div class="py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 col-md-9">
+            <div class="card border-0 shadow-sm rounded-3 bg-white text-center p-4 p-md-5">
+                <div class="mb-3">
+                    <span class="d-inline-flex p-3 bg-warning-subtle text-warning-emphasis rounded-circle fs-1 border border-warning-subtle">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </span>
+                </div>
+
+                <h3 class="fw-bold text-dark mb-2">Organiser Credentials Required</h3>
+                <p class="text-secondary mb-4 lead fs-6">
+                    {{ message|default:"The Admin Dashboard, Tournament Creator, and Arbiter stations are restricted to registered Tournament Organisers & Arbiters." }}
+                </p>
+
+                <div class="card bg-light border-0 p-3 rounded-3 text-start mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                        <span class="text-secondary small">Current Logged-in Account:</span>
+                        <span class="fw-bold text-dark font-monospace">{{ request.user.username }}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="text-secondary small">Account Role:</span>
+                        <span class="badge bg-primary px-2 py-1"><i class="bi bi-person-fill me-1"></i> Player Profile</span>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="{% url 'user_profile' %}" class="btn btn-primary px-4">
+                        <i class="bi bi-person-circle me-1"></i> View My Player Profile
+                    </a>
+                    <a href="{% url 'signup' %}?type=organiser" class="btn btn-warning text-dark fw-bold px-4">
+                        <i class="bi bi-shield-plus me-1"></i> Create Organiser Account
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline-secondary px-3">
+                        <i class="bi bi-box-arrow-right me-1"></i> Switch Account
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

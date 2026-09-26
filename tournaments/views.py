@@ -1,16 +1,370 @@
 import json
 import random
 from datetime import date, timedelta
+from functools import wraps
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
+from django.urls import reverse
 
-from .models import Tournament, Player, TournamentParticipant, Round, Match
-from .forms import TournamentForm, PlayerRegistrationForm, MatchResultUpdateForm
+from .models import Tournament, Player, TournamentParticipant, Round, Match, UserProfile
+from .forms import (
+    TournamentForm, PlayerRegistrationForm, MatchResultUpdateForm, PlayerForm,
+    PlayerSignUpForm, OrganiserSignUpForm, LoginForm
+)
 from .engine import SwissEngine, RoundRobinEngine, TieBreakCalculator
+
+
+def organiser_required(view_func):
+    """
+    Decorator requiring the user to be authenticated with an Organiser profile credentials.
+    If a Player attempts to access, displays an informative permission restriction view.
+    """
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.warning(request, "Please log in with your Organiser credentials to access the Admin Dashboard & Arbiter tools.")
+            return redirect(f"{reverse('login')}?next={request.get_full_path()}")
+        
+        profile = getattr(request.user, 'profile', None)
+        if not (profile and profile.is_organiser):
+            return render(request, 'tournaments/access_denied.html', {
+                'title': 'Organiser Credentials Required',
+                'message': 'The Admin Dashboard, Tournament Editing, and Arbiter stations are restricted to verified Organiser accounts. You are currently logged in with a Player profile.',
+                'profile': profile,
+            }, status=403)
+            
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
+def signup_view(request):
+    """Sign up view for creating either Player profile or Organiser profile."""
+    if request.user.is_authenticated:
+        return redirect('user_profile')
+
+    account_type = request.GET.get('type', 'player')
+    
+    player_form = PlayerSignUpForm()
+    organiser_form = OrganiserSignUpForm()
+
+    if request.method == 'POST':
+        submitted_type = request.POST.get('account_type', 'player')
+        if submitted_type == 'player':
+            player_form = PlayerSignUpForm(request.POST)
+            if player_form.is_valid():
+                username = player_form.cleaned_data['username'].strip()
+                email = player_form.cleaned_data['email'].strip()
+                password = player_form.cleaned_data['password']
+                name = player_form.cleaned_data['name'].strip()
+                title = player_form.cleaned_data.get('title', 'NONE')
+                rating = player_form.cleaned_data.get('rating', 1200)
+                fide_id = player_form.cleaned_data.get('fide_id') or None
+                federation = player_form.cleaned_data.get('federation', 'IND')
+                club_or_city = player_form.cleaned_data.get('club_or_city', '')
+                birth_year = player_form.cleaned_data.get('birth_year')
+                gender = player_form.cleaned_data.get('gender', 'M')
+                phone = player_form.cleaned_data.get('phone', '')
+
+                if User.objects.filter(username__iexact=username).exists():
+                    player_form.add_error('username', "Username is already taken. Please choose another.")
+                elif User.objects.filter(email__iexact=email).exists():
+                    player_form.add_error('email', "An account with this email address already exists.")
+                else:
+                    user = User.objects.create_user(username=username, email=email, password=password)
+                    user.first_name = name
+                    user.save()
+
+                    # Find or create Player record
+                    player = None
+                    if fide_id:
+                        player = Player.objects.filter(fide_id=fide_id).first()
+                    if not player:
+                        player = Player.objects.filter(name__iexact=name).first()
+                    if not player:
+                        player = Player.objects.create(
+                            name=name,
+                            fide_id=fide_id,
+                            title=title,
+                            rating=rating,
+                            federation=federation,
+                            club_or_city=club_or_city,
+                            birth_year=birth_year,
+                            gender=gender,
+                            email=email,
+                            phone=phone,
+                        )
+                    else:
+                        player.rating = rating
+                        player.title = title
+                        player.email = email
+                        player.phone = phone
+                        player.save()
+
+                    profile, _ = UserProfile.objects.get_or_create(user=user)
+                    profile.role = 'PLAYER'
+                    profile.player = player
+                    profile.phone = phone
+                    profile.save()
+
+                    login(request, user)
+                    messages.success(request, f"Welcome {name}! Your Player account has been registered successfully.")
+                    return redirect('user_profile')
+            account_type = 'player'
+
+        elif submitted_type == 'organiser':
+            organiser_form = OrganiserSignUpForm(request.POST)
+            if organiser_form.is_valid():
+                username = organiser_form.cleaned_data['username'].strip()
+                email = organiser_form.cleaned_data['email'].strip()
+                password = organiser_form.cleaned_data['password']
+                name = organiser_form.cleaned_data['name'].strip()
+                organization_name = organiser_form.cleaned_data.get('organization_name', '')
+                arbiter_title = organiser_form.cleaned_data.get('arbiter_title', '')
+                federation = organiser_form.cleaned_data.get('federation', 'IND')
+                phone = organiser_form.cleaned_data.get('phone', '')
+
+                if User.objects.filter(username__iexact=username).exists():
+                    organiser_form.add_error('username', "Username is already taken. Please choose another.")
+                elif User.objects.filter(email__iexact=email).exists():
+                    organiser_form.add_error('email', "An account with this email address already exists.")
+                else:
+                    user = User.objects.create_user(username=username, email=email, password=password)
+                    user.first_name = name
+                    user.is_staff = True
+                    user.save()
+
+                    profile, _ = UserProfile.objects.get_or_create(user=user)
+                    profile.role = 'ORGANISER'
+                    profile.organization_name = organization_name
+                    profile.arbiter_title = arbiter_title
+                    profile.phone = phone
+                    profile.save()
+
+                    login(request, user)
+                    messages.success(request, f"Welcome Organiser {name}! Your Organiser credentials are ready. Admin Dashboard is now unlocked.")
+                    return redirect('admin_dashboard')
+            account_type = 'organiser'
+
+    return render(request, 'tournaments/signup.html', {
+        'account_type': account_type,
+        'player_form': player_form,
+        'organiser_form': organiser_form,
+    })
+
+
+def login_view(request):
+    """Login view for Organisers and Players."""
+    if request.user.is_authenticated:
+        if hasattr(request.user, 'profile') and request.user.profile.is_organiser:
+            return redirect('admin_dashboard')
+        return redirect('user_profile')
+
+    next_url = request.GET.get('next') or request.POST.get('next', '')
+    form = LoginForm()
+
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username'].strip()
+            password = form.cleaned_data['password']
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                profile = getattr(user, 'profile', None)
+                if profile and profile.is_organiser:
+                    messages.success(request, f"Welcome back, Organiser {user.first_name or user.username}! Admin Dashboard unlocked.")
+                    if next_url:
+                        return redirect(next_url)
+                    return redirect('admin_dashboard')
+                else:
+                    messages.success(request, f"Welcome back, {user.first_name or user.username}!")
+                    if next_url:
+                        return redirect(next_url)
+                    return redirect('user_profile')
+            else:
+                messages.error(request, "Invalid username or password. Please check your credentials.")
+
+    return render(request, 'tournaments/login.html', {
+        'form': form,
+        'next': next_url,
+    })
+
+
+def logout_view(request):
+    """Logout view."""
+    logout(request)
+    messages.info(request, "You have been logged out.")
+    return redirect('tournament_list')
+
+
+def user_profile(request):
+    """Profile page for the logged-in user."""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    profile = getattr(request.user, 'profile', None)
+    player = profile.player if profile else None
+
+    # Player stats & matches
+    tournaments_entered = []
+    player_matches = []
+    total_wins = 0
+    total_draws = 0
+    total_losses = 0
+
+    if player:
+        tournaments_entered = player.tournament_entries.select_related('tournament').order_by('-registered_at')
+        
+        white_matches = Match.objects.filter(white_participant__player=player).select_related('round__tournament', 'black_participant__player')
+        black_matches = Match.objects.filter(black_participant__player=player).select_related('round__tournament', 'white_participant__player')
+        
+        for m in white_matches:
+            if m.white_score == 1.0:
+                total_wins += 1
+            elif m.white_score == 0.5:
+                total_draws += 1
+            elif m.white_score == 0.0:
+                total_losses += 1
+            player_matches.append({
+                'round_number': m.round.round_number,
+                'tournament': m.round.tournament,
+                'color': 'White',
+                'opponent': m.black_participant.player if m.black_participant else None,
+                'result': m.result,
+                'score': m.white_score,
+                'pgn': m.pgn,
+            })
+            
+        for m in black_matches:
+            if m.black_score == 1.0:
+                total_wins += 1
+            elif m.black_score == 0.5:
+                total_draws += 1
+            elif m.black_score == 0.0:
+                total_losses += 1
+            player_matches.append({
+                'round_number': m.round.round_number,
+                'tournament': m.round.tournament,
+                'color': 'Black',
+                'opponent': m.white_participant.player if m.white_participant else None,
+                'result': m.result,
+                'score': m.black_score,
+                'pgn': m.pgn,
+            })
+
+    # Organiser managed tournaments
+    managed_tournaments = []
+    if profile and profile.is_organiser:
+        managed_tournaments = Tournament.objects.all().order_by('-created_at')
+
+    context = {
+        'profile': profile,
+        'player': player,
+        'tournaments_entered': tournaments_entered,
+        'player_matches': player_matches,
+        'total_wins': total_wins,
+        'total_draws': total_draws,
+        'total_losses': total_losses,
+        'managed_tournaments': managed_tournaments,
+    }
+    return render(request, 'tournaments/user_profile.html', context)
+
+
+@organiser_required
+def admin_dashboard(request):
+    """
+    Comprehensive In-App Admin Dashboard:
+    - Central control station for all tournaments and players
+    - Quick tournament actions: Create, Edit, Delete, Arbiter Station, Recalculate
+    - Player database overview & editing
+    - Real-time tournament statistics and pairing status
+    """
+    q_tournament = request.GET.get('qt', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    system_filter = request.GET.get('system', '').strip()
+    
+    q_player = request.GET.get('qp', '').strip()
+    title_filter = request.GET.get('title', '').strip()
+    
+    active_tab = request.GET.get('tab', 'tournaments')
+
+    # Tournaments Query
+    tournaments_qs = Tournament.objects.prefetch_related('participants', 'rounds').all()
+    if q_tournament:
+        tournaments_qs = tournaments_qs.filter(
+            Q(name__icontains=q_tournament) |
+            Q(tournament_code__icontains=q_tournament) |
+            Q(city__icontains=q_tournament) |
+            Q(chief_arbiter__icontains=q_tournament) |
+            Q(federation__icontains=q_tournament)
+        )
+    if status_filter:
+        tournaments_qs = tournaments_qs.filter(status=status_filter)
+    if system_filter:
+        tournaments_qs = tournaments_qs.filter(tournament_system=system_filter)
+
+    # Players Query
+    players_qs = Player.objects.all()
+    if q_player:
+        players_qs = players_qs.filter(
+            Q(name__icontains=q_player) |
+            Q(fide_id__icontains=q_player) |
+            Q(federation__icontains=q_player) |
+            Q(club_or_city__icontains=q_player)
+        )
+    if title_filter:
+        players_qs = players_qs.filter(title=title_filter)
+
+    # Pagination for players (25 per page)
+    player_paginator = Paginator(players_qs, 25)
+    player_page_number = request.GET.get('player_page', 1)
+    players_page = player_paginator.get_page(player_page_number)
+
+    # Global Stats
+    total_tournaments = Tournament.objects.count()
+    active_tournaments = Tournament.objects.filter(status='ACTIVE').count()
+    upcoming_tournaments = Tournament.objects.filter(status='UPCOMING').count()
+    finished_tournaments = Tournament.objects.filter(status='FINISHED').count()
+    
+    total_players = Player.objects.count()
+    titled_players = Player.objects.exclude(title='NONE').count()
+    total_matches = Match.objects.count()
+    completed_matches = Match.objects.exclude(result='*').count()
+
+    # Active tournaments needing arbiter attention
+    active_tournaments_list = Tournament.objects.filter(status='ACTIVE').order_by('-created_at')[:5]
+
+    # Form for adding player directly from dashboard
+    player_form = PlayerForm()
+
+    context = {
+        'tournaments': tournaments_qs,
+        'players': players_page,
+        'active_tab': active_tab,
+        'q_tournament': q_tournament,
+        'status_filter': status_filter,
+        'system_filter': system_filter,
+        'q_player': q_player,
+        'title_filter': title_filter,
+        'total_tournaments': total_tournaments,
+        'active_tournaments': active_tournaments,
+        'upcoming_tournaments': upcoming_tournaments,
+        'finished_tournaments': finished_tournaments,
+        'total_players': total_players,
+        'titled_players': titled_players,
+        'total_matches': total_matches,
+        'completed_matches': completed_matches,
+        'active_tournaments_list': active_tournaments_list,
+        'player_form': player_form,
+        'title_choices': Player.TITLE_CHOICES,
+    }
+    return render(request, 'tournaments/admin_dashboard.html', context)
 
 
 def tournament_list(request):
@@ -50,6 +404,7 @@ def tournament_list(request):
     return render(request, 'tournaments/tournament_list.html', context)
 
 
+@organiser_required
 def tournament_create(request):
     """Create a new chess tournament."""
     if request.method == 'POST':
@@ -62,9 +417,103 @@ def tournament_create(request):
         # Default start date tomorrow, end date 5 days later
         start = date.today() + timedelta(days=1)
         end = start + timedelta(days=5)
-        form = TournamentForm(initial={'start_date': start, 'end_date': end})
+        form = TournamentForm(initial={'start_date': start, 'end_date': end, 'status': 'UPCOMING'})
 
     return render(request, 'tournaments/tournament_create.html', {'form': form})
+
+
+@organiser_required
+def tournament_edit(request, slug):
+    """Edit existing tournament configuration."""
+    tournament = get_object_or_404(Tournament, slug=slug)
+
+    if request.method == 'POST':
+        form = TournamentForm(request.POST, instance=tournament)
+        if form.is_valid():
+            tournament = form.save()
+            messages.success(request, f"Tournament '{tournament.name}' updated successfully!")
+            next_url = request.GET.get('next') or request.POST.get('next')
+            if next_url == 'admin':
+                return redirect('admin_dashboard')
+            return redirect('tournament_detail', slug=tournament.slug)
+    else:
+        form = TournamentForm(instance=tournament)
+
+    return render(request, 'tournaments/tournament_edit.html', {
+        'form': form,
+        'tournament': tournament,
+        'next': request.GET.get('next', '')
+    })
+
+
+@organiser_required
+def tournament_delete(request, slug):
+    """Safely delete tournament and all associated rounds, pairings, and participants."""
+    tournament = get_object_or_404(Tournament, slug=slug)
+
+    if request.method == 'POST':
+        tournament_name = tournament.name
+        tournament_code = tournament.tournament_code
+        tournament.delete()
+        messages.success(request, f"Tournament '{tournament_name}' ({tournament_code}) and all related fixtures have been permanently deleted.")
+        return redirect('admin_dashboard')
+
+    # GET: show delete confirmation details
+    participants_count = tournament.participants.count()
+    rounds_count = tournament.rounds.count()
+    matches_count = Match.objects.filter(round__tournament=tournament).count()
+
+    return render(request, 'tournaments/tournament_delete.html', {
+        'tournament': tournament,
+        'participants_count': participants_count,
+        'rounds_count': rounds_count,
+        'matches_count': matches_count,
+    })
+
+
+@organiser_required
+def player_create(request):
+    """Create a player directly from admin station."""
+    if request.method == 'POST':
+        form = PlayerForm(request.POST)
+        if form.is_valid():
+            player = form.save()
+            messages.success(request, f"Player '{player.name}' added to global registry.")
+            return redirect(f"/dashboard/?tab=players")
+        else:
+            messages.error(request, "Failed to add player. Please check the form fields.")
+    return redirect('admin_dashboard')
+
+
+@organiser_required
+def player_edit(request, player_id):
+    """Edit existing player profile."""
+    player = get_object_or_404(Player, id=player_id)
+    if request.method == 'POST':
+        form = PlayerForm(request.POST, instance=player)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Player '{player.name}' updated successfully.")
+            return redirect(f"/dashboard/?tab=players")
+    else:
+        form = PlayerForm(instance=player)
+
+    return render(request, 'tournaments/player_form.html', {
+        'form': form,
+        'player': player,
+        'is_edit': True
+    })
+
+
+@organiser_required
+def player_delete(request, player_id):
+    """Delete a player from global registry."""
+    player = get_object_or_404(Player, id=player_id)
+    if request.method == 'POST':
+        player_name = player.name
+        player.delete()
+        messages.success(request, f"Player '{player_name}' deleted successfully.")
+    return redirect(f"/dashboard/?tab=players")
 
 
 def tournament_detail(request, slug):
@@ -278,6 +727,7 @@ def player_detail(request, slug, participant_id):
     return render(request, 'tournaments/player_detail.html', context)
 
 
+@organiser_required
 def arbiter_control_panel(request, slug):
     """
     Arbiter Management Station:
@@ -315,6 +765,7 @@ def arbiter_control_panel(request, slug):
 
 
 @require_POST
+@organiser_required
 def generate_round_pairings(request, slug):
     """Triggers pairing generation for the next or requested round."""
     tournament = get_object_or_404(Tournament, slug=slug)
@@ -337,6 +788,7 @@ def generate_round_pairings(request, slug):
 
 
 @require_POST
+@organiser_required
 def update_match_result(request, slug, match_id):
     """Updates a single match score from form or AJAX."""
     tournament = get_object_or_404(Tournament, slug=slug)
@@ -373,6 +825,7 @@ def update_match_result(request, slug, match_id):
 
 
 @require_POST
+@organiser_required
 def bulk_update_results(request, slug):
     """Saves multiple board results at once."""
     tournament = get_object_or_404(Tournament, slug=slug)
@@ -398,6 +851,7 @@ def bulk_update_results(request, slug):
 
 
 @require_POST
+@organiser_required
 def recalculate_standings_view(request, slug):
     """Forces standings and tiebreak recalculation."""
     tournament = get_object_or_404(Tournament, slug=slug)

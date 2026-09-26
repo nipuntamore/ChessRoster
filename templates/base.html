@@ -39,14 +39,21 @@
                             <i class="bi bi-trophy-fill me-1 text-warning"></i> Tournaments
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'tournament_create' %}active text-warning{% endif %}" href="{% url 'tournament_create' %}">
-                            <i class="bi bi-plus-circle-fill me-1 text-success"></i> Create Tournament
-                        </a>
-                    </li>
+                    {% if user.is_authenticated and user.profile.is_organiser %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' or request.resolver_match.url_name == 'admin_dashboard_alt' %}active text-warning{% endif %}" href="{% url 'admin_dashboard' %}">
+                                <i class="bi bi-speedometer2 me-1 text-warning"></i> Admin Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'tournament_create' %}active text-warning{% endif %}" href="{% url 'tournament_create' %}">
+                                <i class="bi bi-plus-circle-fill me-1 text-success"></i> Create Tournament
+                            </a>
+                        </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link text-info" href="{% url 'seed_demo_data' %}" title="Load demo 16-GM tournament with 3 played rounds">
-                            <i class="bi bi-lightning-charge-fill me-1"></i> Quick Demo Tournament
+                            <i class="bi bi-lightning-charge-fill me-1"></i> Demo GM Open
                         </a>
                     </li>
                 </ul>
@@ -60,9 +67,47 @@
                 </form>
 
                 <div class="d-flex align-items-center gap-2">
-                    <a href="/admin/" class="btn btn-sm btn-outline-secondary text-white-50 hover-white" target="_blank">
-                        <i class="bi bi-shield-lock me-1"></i> Admin
-                    </a>
+                    {% if user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm {% if user.profile.is_organiser %}btn-warning text-dark fw-bold{% else %}btn-outline-light text-white{% endif %} dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi {% if user.profile.is_organiser %}bi-shield-check{% else %}bi-person-circle{% endif %}"></i>
+                                <span>{{ user.first_name|default:user.username }}</span>
+                                <span class="badge {% if user.profile.is_organiser %}bg-dark text-warning{% else %}bg-primary text-white{% endif %} text-xs ms-1">
+                                    {% if user.profile.is_organiser %}Organiser{% else %}Player{% endif %}
+                                </span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                <li><a class="dropdown-item" href="{% url 'user_profile' %}"><i class="bi bi-person-circle me-2 text-primary"></i> My Profile</a></li>
+                                {% if user.profile.is_organiser %}
+                                    <li><a class="dropdown-item" href="{% url 'admin_dashboard' %}"><i class="bi bi-speedometer2 me-2 text-warning"></i> Admin Dashboard</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'tournament_create' %}"><i class="bi bi-plus-circle me-2 text-success"></i> Create Tournament</a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-sm btn-outline-light">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-warning text-dark fw-bold dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Sign Up
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'signup' %}?type=player">
+                                        <i class="bi bi-person-badge text-primary me-2"></i> Player Profile
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'signup' %}?type=organiser">
+                                        <i class="bi bi-shield-check text-warning me-2"></i> Organiser Profile (Admin)
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -97,9 +142,9 @@
                 <div class="d-flex gap-3 small">
                     <a href="{% url 'tournament_list' %}" class="text-secondary text-decoration-none hover-white">Tournaments</a>
                     <span>•</span>
-                    <a href="{% url 'seed_demo_data' %}" class="text-secondary text-decoration-none hover-white">Demo Data</a>
+                    <a href="{% url 'admin_dashboard' %}" class="text-secondary text-decoration-none hover-white">Admin Dashboard</a>
                     <span>•</span>
-                    <a href="/admin/" class="text-secondary text-decoration-none hover-white">Django Admin</a>
+                    <a href="{% url 'seed_demo_data' %}" class="text-secondary text-decoration-none hover-white">Demo Data</a>
                 </div>
             </div>
         </div>

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Edit {{ player.name }}{% else %}Add Player{% endif %} | ChessRoster Admin{% endblock %}
+
+{% block content %}
+<div class="py-4">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}?tab=players" class="text-decoration-none">Admin Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{% if is_edit %}Edit Player Profile{% else %}Register New Player{% endif %}</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-3 bg-white">
+                <div class="card-header bg-dark-chess text-white p-4 rounded-top-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-person-circle fs-2 text-warning"></i>
+                        <div>
+                            <h3 class="fw-bold mb-0">{% if is_edit %}Edit Player: {{ player.name }}{% else %}Register Player to Database{% endif %}</h3>
+                            <p class="text-white-50 small mb-0 mt-1">Configure player title, standard rating, FIDE identifier, federation, and contact details.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">FIDE Title</label>
+                                {{ form.title }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">FIDE Rating <span class="text-danger">*</span></label>
+                                {{ form.rating }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">National Rating</label>
+                                {{ form.national_rating }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Federation Code</label>
+                                {{ form.federation }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">FIDE ID (optional)</label>
+                                {{ form.fide_id }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">National ID (optional)</label>
+                                {{ form.national_id }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Gender</label>
+                                {{ form.gender }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Birth Year</label>
+                                {{ form.birth_year }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Club or City</label>
+                                {{ form.club_or_city }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Email</label>
+                                {{ form.email }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Phone</label>
+                                {{ form.phone }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                            <a href="{% url 'admin_dashboard' %}?tab=players" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-arrow-left me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success px-5 fw-bold shadow-sm">
+                                <i class="bi bi-check-lg me-1"></i> Save Player Profile
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

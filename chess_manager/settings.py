@@ -75,15 +75,29 @@ WSGI_APPLICATION = 'chess_manager.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 import os
-import dj_database_url
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        os.environ.get('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True,
-    )
-}
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+
+if DATABASE_URL:
+    import dj_database_url
+    # For local PostgreSQL/SQLite URLs, do not force SSL requirement
+    is_local_db = 'localhost' in DATABASE_URL or '127.0.0.1' in DATABASE_URL or DATABASE_URL.startswith('sqlite')
+    ssl_req = False if is_local_db else (os.environ.get('DB_SSL_REQUIRE', 'True').lower() in ('true', '1', 't'))
+    
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=ssl_req,
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

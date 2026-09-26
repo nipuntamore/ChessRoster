@@ -243,3 +243,48 @@ class Match(models.Model):
             self.white_score = None
             self.black_score = None
         super().save(*args, **kwargs)
+
+
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('ORGANISER', 'Tournament Organiser / Arbiter'),
+        ('PLAYER', 'Chess Player'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='PLAYER')
+    
+    # Organiser specific fields
+    organization_name = models.CharField(max_length=150, blank=True, default="", help_text="e.g. Chess Federation / Academy")
+    arbiter_title = models.CharField(max_length=50, blank=True, default="", help_text="e.g. IA (International Arbiter), FA, NA")
+    
+    # Link to Player model for player accounts
+    player = models.OneToOneField(Player, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_account')
+    
+    phone = models.CharField(max_length=30, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_role_display()})"
+
+    @property
+    def is_organiser(self):
+        return self.role == 'ORGANISER' or self.user.is_staff or self.user.is_superuser
+
+    @property
+    def is_player(self):
+        return self.role == 'PLAYER'
+
+
+@receiver(post_save, sender=User)
+def create_or_save_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
+    else:
+        if hasattr(instance, 'profile'):
+            instance.profile.save()

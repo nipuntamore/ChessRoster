@@ -160,12 +160,20 @@
                                 <span class="text-secondary small">
                                     <i class="bi bi-calendar3 me-1"></i> {{ t.start_date|date:"d M Y" }}
                                 </span>
-                                <div class="d-flex gap-2">
-                                    <a href="{% url 'tournament_register' slug=t.slug %}" class="btn btn-sm btn-outline-success">
-                                        <i class="bi bi-person-plus"></i> Register
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <a href="{% url 'tournament_register' slug=t.slug %}" class="btn btn-sm btn-outline-success" title="Register player">
+                                        <i class="bi bi-person-plus"></i>
                                     </a>
+                                    {% if user.is_authenticated and user.profile.is_organiser %}
+                                        <a href="{% url 'tournament_edit' slug=t.slug %}" class="btn btn-sm btn-outline-secondary" title="Edit Tournament">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'tournament_delete' slug=t.slug %}" class="btn btn-sm btn-outline-danger" title="Delete Tournament">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    {% endif %}
                                     <a href="{% url 'tournament_detail' slug=t.slug %}" class="btn btn-sm btn-primary">
-                                        View Hub <i class="bi bi-arrow-right"></i>
+                                        Hub <i class="bi bi-arrow-right"></i>
                                     </a>
                                 </div>
                             </div>

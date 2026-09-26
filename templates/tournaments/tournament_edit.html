@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit {{ tournament.name }} | ChessRoster Admin{% endblock %}
+
+{% block content %}
+<div class="py-3">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}" class="text-decoration-none">Admin Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'tournament_detail' slug=tournament.slug %}" class="text-decoration-none">{{ tournament.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Edit Tournament</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm rounded-3 bg-white">
+                <div class="card-header bg-dark-chess text-white p-4 rounded-top-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-2 text-warning">♔</span>
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h3 class="fw-bold mb-0">Edit Tournament</h3>
+                                <span class="badge-tnr">{{ tournament.tournament_code }}</span>
+                            </div>
+                            <p class="text-white-50 small mb-0 mt-1">Modify tournament settings, pairing structure, status, schedule, or arbiter information.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="{% url 'tournament_delete' slug=tournament.slug %}" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash me-1"></i> Delete Tournament
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        {% if next %}
+                            <input type="hidden" name="next" value="{{ next }}">
+                        {% endif %}
+
+                        <!-- Basic Information -->
+                        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                            <i class="bi bi-info-circle text-primary me-2"></i> Tournament Identity & Status
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Tournament Name <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Tournament Status <span class="text-danger">*</span></label>
+                                {{ form.status }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Tournament System <span class="text-danger">*</span></label>
+                                {{ form.tournament_system }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Time Category</label>
+                                {{ form.time_control_type }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Total Rounds</label>
+                                {{ form.rounds_count }}
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Time Control Specification</label>
+                                {{ form.time_control }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Federation / State Code</label>
+                                {{ form.federation }}
+                            </div>
+                        </div>
+
+                        <!-- Venue & Schedule -->
+                        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                            <i class="bi bi-geo-alt text-danger me-2"></i> Venue & Schedule
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
+                                {{ form.start_date }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">End Date <span class="text-danger">*</span></label>
+                                {{ form.end_date }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">City / Location</label>
+                                {{ form.city }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Venue / Hall</label>
+                                {{ form.venue }}
+                            </div>
+                        </div>
+
+                        <!-- Organization & Arbiters -->
+                        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                            <i class="bi bi-person-badge text-warning me-2"></i> Arbiters & Organization
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Chief Arbiter <span class="text-danger">*</span></label>
+                                {{ form.chief_arbiter }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Deputy Arbiter</label>
+                                {{ form.deputy_arbiter }}
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Organizer / Chess Club</label>
+                                {{ form.organizer }}
+                            </div>
+                            <div class="col-md-4 d-flex align-items-center pt-md-4">
+                                <div class="form-check form-switch mt-2">
+                                    {{ form.is_rated }}
+                                    <label class="form-check-label fw-semibold ms-2" for="{{ form.is_rated.id_for_label }}">
+                                        Official Rated Event
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rules & Description -->
+                        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                            <i class="bi bi-card-text text-secondary me-2"></i> Details & Tie-break Rules
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Tournament Description</label>
+                                {{ form.description }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Rules, Prizes & Tie-breaks</label>
+                                {{ form.rules_and_prizes }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                            <a href="{% if next == 'admin' %}{% url 'admin_dashboard' %}{% else %}{% url 'tournament_detail' slug=tournament.slug %}{% endif %}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-arrow-left me-1"></i> Cancel
+                            </a>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm">
+                                    <i class="bi bi-check-lg me-1"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

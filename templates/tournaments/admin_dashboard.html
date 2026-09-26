@@ -1,0 +1,549 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard | ChessRoster Control Center{% endblock %}
+
+{% block content %}
+<div class="py-3">
+    <!-- Header Section -->
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col-md-7">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark fw-bold px-2 py-1"><i class="bi bi-shield-lock-fill me-1"></i> MASTER ADMIN STATION</span>
+                <span class="badge bg-dark border border-secondary text-secondary">Web App Admin</span>
+            </div>
+            <h1 class="h2 fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+                <span>Tournament Command Center</span>
+            </h1>
+            <p class="text-secondary mb-0">Full control over tournaments, Swiss pairing engine, player registry, results, and system status.</p>
+        </div>
+        <div class="col-md-5 text-md-end d-flex justify-content-md-end gap-2 flex-wrap">
+            <a href="{% url 'tournament_create' %}" class="btn btn-primary shadow-sm d-inline-flex align-items-center gap-1">
+                <i class="bi bi-plus-lg"></i> Create Tournament
+            </a>
+            <button type="button" class="btn btn-success shadow-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#newPlayerModal">
+                <i class="bi bi-person-plus-fill"></i> Add Player
+            </button>
+            <a href="{% url 'seed_demo_data' %}" class="btn btn-outline-dark d-inline-flex align-items-center gap-1" title="Seed 16 GM Demo Tournament">
+                <i class="bi bi-lightning-charge-fill text-warning"></i> Demo Seed
+            </a>
+        </div>
+    </div>
+
+    <!-- Metrics & Quick Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-primary">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-secondary small fw-semibold text-uppercase">Total Tournaments</div>
+                        <div class="fs-3 fw-bold text-dark">{{ total_tournaments }}</div>
+                        <div class="small text-muted">{{ active_tournaments }} active · {{ upcoming_tournaments }} upcoming</div>
+                    </div>
+                    <div class="fs-1 text-primary opacity-50"><i class="bi bi-trophy-fill"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-secondary small fw-semibold text-uppercase">Active Events</div>
+                        <div class="fs-3 fw-bold text-success">{{ active_tournaments }}</div>
+                        <div class="small text-muted">{{ finished_tournaments }} completed events</div>
+                    </div>
+                    <div class="fs-1 text-success opacity-50"><i class="bi bi-broadcast"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-warning">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-secondary small fw-semibold text-uppercase">Players Registry</div>
+                        <div class="fs-3 fw-bold text-warning-emphasis">{{ total_players }}</div>
+                        <div class="small text-muted">{{ titled_players }} titled masters (GM/IM/FM)</div>
+                    </div>
+                    <div class="fs-1 text-warning opacity-50"><i class="bi bi-people-fill"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-secondary small fw-semibold text-uppercase">Matches Tracked</div>
+                        <div class="fs-3 fw-bold text-info">{{ total_matches }}</div>
+                        <div class="small text-muted">{{ completed_matches }} with confirmed results</div>
+                    </div>
+                    <div class="fs-1 text-info opacity-50"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills mb-3 gap-2 bg-white p-2 rounded-3 shadow-sm" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == 'tournaments' or not active_tab %}active fw-bold{% endif %}" href="?tab=tournaments">
+                <i class="bi bi-trophy me-1"></i> Tournaments Directory ({{ total_tournaments }})
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == 'players' %}active fw-bold{% endif %}" href="?tab=players">
+                <i class="bi bi-person-lines-fill me-1"></i> Global Players Registry ({{ total_players }})
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == 'arbiter_quick' %}active fw-bold{% endif %}" href="?tab=arbiter_quick">
+                <i class="bi bi-gear-wide-connected me-1"></i> Arbiter Live Stations
+            </a>
+        </li>
+    </ul>
+
+    <!-- TAB 1: TOURNAMENTS MANAGEMENT -->
+    {% if active_tab == 'tournaments' or not active_tab %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h5 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-table text-primary me-2"></i> All Registered Tournaments
+                </h5>
+                <!-- Filter form -->
+                <form method="GET" class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="hidden" name="tab" value="tournaments">
+                    <div class="input-group input-group-sm" style="min-width: 250px;">
+                        <span class="input-group-text bg-light text-secondary"><i class="bi bi-search"></i></span>
+                        <input type="text" name="qt" class="form-control" placeholder="Search tournament / code..." value="{{ q_tournament }}">
+                    </div>
+                    <select name="status" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">All Statuses</option>
+                        <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Active</option>
+                        <option value="UPCOMING" {% if status_filter == 'UPCOMING' %}selected{% endif %}>Upcoming</option>
+                        <option value="FINISHED" {% if status_filter == 'FINISHED' %}selected{% endif %}>Finished</option>
+                    </select>
+                    <select name="system" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">All Formats</option>
+                        <option value="SWISS" {% if system_filter == 'SWISS' %}selected{% endif %}>Swiss</option>
+                        <option value="ROUND_ROBIN" {% if system_filter == 'ROUND_ROBIN' %}selected{% endif %}>Round Robin</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                    {% if q_tournament or status_filter or system_filter %}
+                        <a href="?tab=tournaments" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    {% endif %}
+                </form>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 chess-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center" style="width: 100px;">Code</th>
+                                <th>Tournament Name</th>
+                                <th class="text-center">System / Time</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Rounds</th>
+                                <th class="text-center">Players</th>
+                                <th class="text-center">Dates</th>
+                                <th class="text-center">Location</th>
+                                <th class="text-end pe-3" style="min-width: 260px;">Admin Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tournaments %}
+                                <tr>
+                                    <td class="text-center">
+                                        <span class="badge-tnr">{{ t.tournament_code }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold">
+                                            <a href="{% url 'tournament_detail' slug=t.slug %}" class="text-decoration-none text-dark hover-primary">
+                                                {{ t.name }}
+                                            </a>
+                                            {% if t.is_rated %}
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle text-xs ms-1">Rated</span>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-secondary">Arbiter: {{ t.chief_arbiter }}</small>
+                                    </td>
+                                    <td class="text-center small">
+                                        <span class="fw-semibold">{{ t.get_tournament_system_display }}</span>
+                                        <div class="text-muted text-xs">{{ t.time_control_type }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if t.status == 'ACTIVE' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                <i class="bi bi-broadcast me-1"></i> Active
+                                            </span>
+                                        {% elif t.status == 'UPCOMING' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                <i class="bi bi-clock me-1"></i> Upcoming
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                <i class="bi bi-check-all me-1"></i> Finished
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center font-monospace">
+                                        <span class="badge bg-light text-dark border">
+                                            {{ t.current_round_num }} / {{ t.rounds_count }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary rounded-pill px-2 py-1">
+                                            {{ t.participant_count }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center small text-secondary">
+                                        {{ t.start_date|date:"d M" }} - {{ t.end_date|date:"d M Y" }}
+                                    </td>
+                                    <td class="text-center small">
+                                        <span class="fed-tag">{{ t.federation }}</span> {{ t.city }}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'tournament_detail' slug=t.slug %}" class="btn btn-outline-secondary" title="View Public Hub">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'arbiter_panel' slug=t.slug %}" class="btn btn-outline-warning text-dark" title="Arbiter Panel">
+                                                <i class="bi bi-gear-fill"></i> Arbiter
+                                            </a>
+                                            <a href="{% url 'tournament_edit' slug=t.slug %}?next=admin" class="btn btn-outline-primary" title="Edit Tournament Settings">
+                                                <i class="bi bi-pencil-square"></i> Edit
+                                            </a>
+                                            <a href="{% url 'tournament_delete' slug=t.slug %}" class="btn btn-outline-danger" title="Delete Tournament">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-5 text-secondary">
+                                        <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
+                                        No tournaments found matching current criteria.
+                                        <div class="mt-2">
+                                            <a href="{% url 'tournament_create' %}" class="btn btn-sm btn-primary">Create Tournament</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- TAB 2: GLOBAL PLAYERS REGISTRY -->
+    {% if active_tab == 'players' %}
+        <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-people-fill text-warning me-2"></i> Global Players Database
+                    </h5>
+                    <span class="badge bg-light text-dark border">{{ total_players }} Total</span>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <!-- Player Filter Form -->
+                    <form method="GET" class="d-flex gap-2 align-items-center">
+                        <input type="hidden" name="tab" value="players">
+                        <div class="input-group input-group-sm" style="min-width: 220px;">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-search"></i></span>
+                            <input type="text" name="qp" class="form-control" placeholder="Search player / FIDE ID..." value="{{ q_player }}">
+                        </div>
+                        <select name="title" class="form-select form-select-sm" style="width: auto;">
+                            <option value="">All Titles</option>
+                            {% for code, label in title_choices %}
+                                <option value="{{ code }}" {% if title_filter == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                        {% if q_player or title_filter %}
+                            <a href="?tab=players" class="btn btn-sm btn-outline-secondary">Reset</a>
+                        {% endif %}
+                    </form>
+
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#newPlayerModal">
+                        <i class="bi bi-plus-lg me-1"></i> Add Player
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 chess-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center" style="width: 60px;">#</th>
+                                <th>Player Name</th>
+                                <th class="text-center">Title</th>
+                                <th class="text-center">FIDE Rating</th>
+                                <th class="text-center">Federation</th>
+                                <th class="text-center">FIDE ID</th>
+                                <th class="text-center">Gender / YOB</th>
+                                <th class="text-center">Club / City</th>
+                                <th class="text-center">Events Joined</th>
+                                <th class="text-end pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in players %}
+                                <tr>
+                                    <td class="text-center font-monospace text-secondary">{{ forloop.counter }}</td>
+                                    <td>
+                                        <div class="fw-bold text-dark">
+                                            {% if p.title != 'NONE' %}
+                                                <span class="badge badge-title badge-{{ p.title|lower }} me-1">{{ p.title }}</span>
+                                            {% endif %}
+                                            {{ p.name }}
+                                        </div>
+                                        {% if p.email %}
+                                            <small class="text-muted">{{ p.email }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if p.title != 'NONE' %}
+                                            <span class="badge bg-dark text-warning border border-warning">{{ p.title }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center font-monospace fw-bold text-primary">{{ p.rating }}</td>
+                                    <td class="text-center"><span class="fed-tag">{{ p.federation }}</span></td>
+                                    <td class="text-center font-monospace small">{{ p.fide_id|default:"-" }}</td>
+                                    <td class="text-center small text-secondary">
+                                        {{ p.get_gender_display }} {% if p.birth_year %}({{ p.birth_year }}){% endif %}
+                                    </td>
+                                    <td class="text-center small text-secondary">{{ p.club_or_city|default:"-" }}</td>
+                                    <td class="text-center font-monospace">
+                                        <span class="badge bg-light text-dark border">{{ p.tournament_entries.count }}</span>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'player_edit' player_id=p.id %}" class="btn btn-outline-primary" title="Edit Player">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form method="POST" action="{% url 'player_delete' player_id=p.id %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete player {{ p.name }}?');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Player">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center py-5 text-secondary">
+                                        No players in database matching query.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if players.has_other_pages %}
+                <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+                    <span class="small text-secondary">
+                        Showing page {{ players.number }} of {{ players.paginator.num_pages }} ({{ players.paginator.count }} total players)
+                    </span>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if players.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tab=players&qp={{ q_player }}&title={{ title_filter }}&player_page={{ players.previous_page_number }}">Previous</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                        {% endif %}
+
+                        <li class="page-item active"><span class="page-link">{{ players.number }}</span></li>
+
+                        {% if players.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tab=players&qp={{ q_player }}&title={{ title_filter }}&player_page={{ players.next_page_number }}">Next</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">Next</span></li>
+                        {% endif %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- TAB 3: ARBITER LIVE STATIONS -->
+    {% if active_tab == 'arbiter_quick' %}
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-4">
+                    <h5 class="fw-bold text-dark border-bottom pb-3 mb-3">
+                        <i class="bi bi-broadcast text-danger me-2"></i> Active Events Requiring Arbiter Action
+                    </h5>
+                    {% if active_tournaments_list %}
+                        <div class="list-group list-group-flush">
+                            {% for at in active_tournaments_list %}
+                                <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center p-3 border rounded-3 mb-3">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="badge-tnr">{{ at.tournament_code }}</span>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                Round {{ at.current_round_num }} of {{ at.rounds_count }}
+                                            </span>
+                                            <span class="badge bg-warning text-dark">{{ at.get_tournament_system_display }}</span>
+                                        </div>
+                                        <h6 class="fw-bold mb-1">
+                                            <a href="{% url 'tournament_detail' slug=at.slug %}" class="text-decoration-none text-dark hover-primary">
+                                                {{ at.name }}
+                                            </a>
+                                        </h6>
+                                        <div class="small text-secondary">
+                                            Chief Arbiter: <strong>{{ at.chief_arbiter }}</strong> · Players: <strong>{{ at.participant_count }}</strong> · City: <strong>{{ at.city }}, {{ at.federation }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex gap-2 mt-2 mt-md-0">
+                                        <a href="{% url 'arbiter_panel' slug=at.slug %}" class="btn btn-warning fw-bold btn-sm">
+                                            <i class="bi bi-gear-fill me-1"></i> Arbiter Station
+                                        </a>
+                                        <form method="POST" action="{% url 'recalculate_standings' slug=at.slug %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Recalculate Standings">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 text-secondary">
+                            <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+                            No active tournaments currently in progress.
+                            <div class="mt-2">
+                                <a href="{% url 'tournament_create' %}" class="btn btn-sm btn-primary">Create New Tournament</a>
+                                <a href="{% url 'seed_demo_data' %}" class="btn btn-sm btn-outline-warning text-dark">Load Demo Event</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-4 mb-4">
+                    <h5 class="fw-bold text-dark border-bottom pb-3 mb-3">
+                        <i class="bi bi-tools text-primary me-2"></i> System Diagnostics & Tools
+                    </h5>
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Pairing Algorithm:</span>
+                            <span class="badge bg-success">FIDE Dutch Swiss</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Round Robin Engine:</span>
+                            <span class="badge bg-primary">Berger Circle Method</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Tie-breaks Supported:</span>
+                            <span class="fw-semibold">BH, BH-C1, SB, DE, Wins</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-secondary">Database Backend:</span>
+                            <span class="badge bg-dark font-monospace">Active & Connected</span>
+                        </li>
+                    </ul>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'seed_demo_data' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Quick Demo Tournament (16 GMs)
+                        </a>
+                        <a href="{% url 'tournament_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i> Create New Event
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Add New Player -->
+<div class="modal fade" id="newPlayerModal" tabindex="-1" aria-labelledby="newPlayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark-chess text-white">
+                <h5 class="modal-title fw-bold" id="newPlayerModalLabel">
+                    <i class="bi bi-person-plus text-warning me-2"></i> Register New Player to Global Registry
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'player_create' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                            {{ player_form.name }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">FIDE Title</label>
+                            {{ player_form.title }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">FIDE Rating <span class="text-danger">*</span></label>
+                            {{ player_form.rating }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">National Rating</label>
+                            {{ player_form.national_rating }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Federation Code</label>
+                            {{ player_form.federation }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">FIDE ID (optional)</label>
+                            {{ player_form.fide_id }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">National ID (optional)</label>
+                            {{ player_form.national_id }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Gender</label>
+                            {{ player_form.gender }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Birth Year</label>
+                            {{ player_form.birth_year }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Club or City</label>
+                            {{ player_form.club_or_city }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            {{ player_form.email }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone</label>
+                            {{ player_form.phone }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4">
+                        <i class="bi bi-check-lg me-1"></i> Save Player
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

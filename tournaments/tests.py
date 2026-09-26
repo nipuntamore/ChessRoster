@@ -8,6 +8,17 @@ from .engine import SwissEngine, RoundRobinEngine, TieBreakCalculator
 class ChessTournamentEngineTestCase(TestCase):
     def setUp(self):
         self.client = Client()
+        from django.contrib.auth.models import User
+        from .models import UserProfile
+        
+        self.organiser_user = User.objects.create_user(username="test_organiser", email="org@chess.com", password="password123")
+        self.organiser_user.profile.role = 'ORGANISER'
+        self.organiser_user.profile.save()
+
+        self.player_user = User.objects.create_user(username="test_player", email="player@chess.com", password="password123")
+        self.player_user.profile.role = 'PLAYER'
+        self.player_user.profile.save()
+
         self.tournament = Tournament.objects.create(
             name="World Masters Invitational 2026",
             tournament_code="tnr999999",
@@ -164,3 +175,200 @@ class ChessTournamentEngineTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Player.objects.filter(name='Anand, Viswanathan').exists())
         self.assertTrue(TournamentParticipant.objects.filter(player__name='Anand, Viswanathan').exists())
+
+    def test_admin_dashboard_view(self):
+        from django.test import RequestFactory
+        from tournaments.views import admin_dashboard
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.contrib.messages.middleware import MessageMiddleware
+
+        rf = RequestFactory()
+        
+        # Test Organiser can access
+        req_org = rf.get(reverse('admin_dashboard'))
+        req_org.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_org)
+        req_org.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_org)
+        response_org = admin_dashboard(req_org)
+        self.assertEqual(response_org.status_code, 200)
+        self.assertIn(b"Tournament Command Center", response_org.content)
+
+        # Test Player is restricted
+        req_player = rf.get(reverse('admin_dashboard'))
+        req_player.user = self.player_user
+        SessionMiddleware(lambda r: None).process_request(req_player)
+        req_player.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_player)
+        response_player = admin_dashboard(req_player)
+        self.assertEqual(response_player.status_code, 403)
+        self.assertIn(b"Organiser Credentials Required", response_player.content)
+
+    def test_tournament_edit_view(self):
+        from django.test import RequestFactory
+        from tournaments.views import tournament_edit
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.contrib.messages.middleware import MessageMiddleware
+
+        rf = RequestFactory()
+        
+        # GET
+        req_get = rf.get(reverse('tournament_edit', kwargs={'slug': self.tournament.slug}))
+        req_get.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_get)
+        req_get.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_get)
+        response_get = tournament_edit(req_get, slug=self.tournament.slug)
+        self.assertEqual(response_get.status_code, 200)
+        self.assertIn(b"Edit Tournament", response_get.content)
+
+        # POST
+        req_post = rf.post(reverse('tournament_edit', kwargs={'slug': self.tournament.slug}), data={
+            'name': 'World Masters Invitational 2026 Updated',
+            'tournament_system': 'SWISS',
+            'status': 'ACTIVE',
+            'time_control_type': 'CLASSICAL',
+            'time_control': '90m + 30s',
+            'rounds_count': 7,
+            'start_date': date.today(),
+            'end_date': date.today() + timedelta(days=7),
+            'federation': 'FIDE',
+            'city': 'Paris',
+            'venue': 'Grand Hotel',
+            'chief_arbiter': 'IA Laurent Freyd',
+            'deputy_arbiter': '',
+            'organizer': 'FIDE',
+            'is_rated': True,
+            'description': 'Updated description',
+            'rules_and_prizes': 'Updated rules'
+        })
+        req_post.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_post)
+        req_post.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_post)
+
+        response_post = tournament_edit(req_post, slug=self.tournament.slug)
+        self.assertEqual(response_post.status_code, 302)
+        self.tournament.refresh_from_db()
+        self.assertEqual(self.tournament.name, 'World Masters Invitational 2026 Updated')
+        self.assertEqual(self.tournament.status, 'ACTIVE')
+        self.assertEqual(self.tournament.rounds_count, 7)
+
+    def test_tournament_delete_view(self):
+        from django.test import RequestFactory
+        from tournaments.views import tournament_delete
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.contrib.messages.middleware import MessageMiddleware
+
+        t_to_delete = Tournament.objects.create(
+            name="Temporary Blitz Cup",
+            tournament_code="tnrTMP01",
+            tournament_system="SWISS",
+            rounds_count=3,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=1),
+            chief_arbiter="IA Test"
+        )
+        rf = RequestFactory()
+
+        # GET confirmation page
+        req_get = rf.get(reverse('tournament_delete', kwargs={'slug': t_to_delete.slug}))
+        req_get.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_get)
+        req_get.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_get)
+        response_get = tournament_delete(req_get, slug=t_to_delete.slug)
+        self.assertEqual(response_get.status_code, 200)
+        self.assertIn(b"Confirm Tournament Deletion", response_get.content)
+
+        # POST delete
+        req_post = rf.post(reverse('tournament_delete', kwargs={'slug': t_to_delete.slug}))
+        req_post.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_post)
+        req_post.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_post)
+
+        response_post = tournament_delete(req_post, slug=t_to_delete.slug)
+        self.assertEqual(response_post.status_code, 302)
+        self.assertFalse(Tournament.objects.filter(slug=t_to_delete.slug).exists())
+
+    def test_player_edit_and_delete_view(self):
+        from django.test import RequestFactory
+        from tournaments.views import player_edit, player_delete
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.contrib.messages.middleware import MessageMiddleware
+
+        player = Player.objects.create(name="Test Player", rating=1500, federation="IND")
+        rf = RequestFactory()
+
+        # Edit
+        req_edit = rf.post(reverse('player_edit', kwargs={'player_id': player.id}), data={
+            'name': 'Test Player Updated',
+            'title': 'FM',
+            'rating': 2300,
+            'federation': 'IND',
+            'gender': 'M',
+        })
+        req_edit.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_edit)
+        req_edit.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_edit)
+
+        response_edit = player_edit(req_edit, player_id=player.id)
+        self.assertEqual(response_edit.status_code, 302)
+        player.refresh_from_db()
+        self.assertEqual(player.name, 'Test Player Updated')
+        self.assertEqual(player.title, 'FM')
+        self.assertEqual(player.rating, 2300)
+
+        # Delete
+        req_del = rf.post(reverse('player_delete', kwargs={'player_id': player.id}))
+        req_del.user = self.organiser_user
+        SessionMiddleware(lambda r: None).process_request(req_del)
+        req_del.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_del)
+
+        response_del = player_delete(req_del, player_id=player.id)
+        self.assertEqual(response_del.status_code, 302)
+        self.assertFalse(Player.objects.filter(id=player.id).exists())
+
+    def test_auth_signup_and_login_views(self):
+        from django.test import RequestFactory
+        from tournaments.views import signup_view, login_view, user_profile
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.contrib.messages.middleware import MessageMiddleware
+        from django.contrib.auth.models import AnonymousUser
+
+        rf = RequestFactory()
+
+        # Sign up new player
+        req_signup = rf.post(reverse('signup'), data={
+            'account_type': 'player',
+            'username': 'newchessguy',
+            'email': 'newguy@chess.com',
+            'password': 'ComplexPassword123!',
+            'password_confirm': 'ComplexPassword123!',
+            'name': 'Kasparov, Garry',
+            'rating': 2812,
+            'title': 'GM',
+            'federation': 'RUS',
+            'gender': 'M',
+        })
+        req_signup.user = AnonymousUser()
+        SessionMiddleware(lambda r: None).process_request(req_signup)
+        req_signup.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_signup)
+
+        resp_signup = signup_view(req_signup)
+        self.assertEqual(resp_signup.status_code, 302)
+        self.assertTrue(Player.objects.filter(name='Kasparov, Garry').exists())
+
+        # Test profile view
+        req_prof = rf.get(reverse('user_profile'))
+        req_prof.user = self.player_user
+        SessionMiddleware(lambda r: None).process_request(req_prof)
+        req_prof.session.save()
+        MessageMiddleware(lambda r: None).process_request(req_prof)
+        resp_prof = user_profile(req_prof)
+        self.assertEqual(resp_prof.status_code, 200)
+        self.assertIn(b"Player Card", resp_prof.content)
