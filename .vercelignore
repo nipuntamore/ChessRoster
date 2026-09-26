@@ -1,7 +1,10 @@
+env/
 venv/
 .venv/
+virtualenv/
+*.sqlite3
+media/
 __pycache__/
 *.pyc
-db.sqlite3
-media/
 .git/
+.github/
