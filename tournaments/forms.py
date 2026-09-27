@@ -6,7 +6,7 @@ class TournamentForm(forms.ModelForm):
     class Meta:
         model = Tournament
         fields = [
-            'name', 'tournament_system', 'status', 'time_control_type', 'time_control',
+            'name','tournament_code', 'tournament_system', 'status', 'time_control_type', 'time_control',
             'rounds_count', 'start_date', 'end_date', 'federation', 'city',
             'venue', 'chief_arbiter', 'deputy_arbiter', 'organizer', 'is_rated',
             'description', 'rules_and_prizes'
@@ -19,7 +19,7 @@ class TournamentForm(forms.ModelForm):
             'time_control': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '90m + 30s/move'}),
             'rounds_count': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 20}),
             'start_date': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
-'end_date': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+            'end_date': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
             'federation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'FIDE / IND / USA'}),
             'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'City'}),
             'venue': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tournament Hall'}),
@@ -29,6 +29,7 @@ class TournamentForm(forms.ModelForm):
             'is_rated': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'rules_and_prizes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'tournament_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. tnr1263143'}),
         }
 
 
