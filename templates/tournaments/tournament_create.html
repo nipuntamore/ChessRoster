@@ -34,12 +34,17 @@
                             <i class="bi bi-info-circle text-primary me-2"></i> Tournament Identity
                         </h5>
                         <div class="row g-3 mb-4">
-                            <div class="col-md-8">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Tournament Name <span class="text-danger">*</span></label>
                                 {{ form.name }}
                                 <div class="form-text">e.g. 5th International Grandmaster Swiss Open 2026</div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Tournament Code <span class="text-danger">*</span></label>
+                                {{ form.tournament_code }}
+                                <div class="form-text">Unique reference code</div>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label fw-semibold">Federation / State Code</label>
                                 {{ form.federation }}
                             </div>
