@@ -78,22 +78,29 @@ import os
 import dj_database_url
 from dotenv import load_dotenv
 
-# Load local .env file if present
+# Force load .env file from project root
 load_dotenv()
 
-# Read from environment
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Read DATABASE_URL from environment
+raw_db_url = os.environ.get('DATABASE_URL', '')
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is not set!")
-
-DATABASES = {
-    'default': dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,
-        ssl_require=True
-    )
-}
+# Clean up empty or broken env values like '://'
+if not raw_db_url or raw_db_url.strip() == '://':
+    # Fallback to local SQLite if DATABASE_URL is not provided locally
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            raw_db_url,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
